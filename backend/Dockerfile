@@ -3,12 +3,12 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ ./app/
+COPY backend/app/ ./app/
 
-EXPOSE ${PORT:-8000}
+EXPOSE ${PORT:-8req000}
 
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
