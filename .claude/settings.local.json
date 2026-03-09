@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.wikimedia.org)",
+      "Bash(curl -s -H \"User-Agent: DayVault-Research\" \"https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/all/02/15\")",
+      "Bash(curl -s -i -H \"User-Agent: DayVault-Research\" \"https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/all/02/15\")",
+      "Bash(pip install supabase python-dotenv -q)",
+      "Bash(python backend/scripts/seed_events.py)",
+      "Bash(curl -s -X POST \"https://api.supabase.com/v1/projects/ugmjaamgjfpkssaphwxl/database/query\" -H \"Authorization: Bearer sbp_93502a285457630cd97cb08275ac645599cfca2d\" -H \"Content-Type: application/json\" -d '{\"\"query\"\": \"\"select count\\(*\\) as total, count\\(image_url\\) as with_image, count\\(year\\) as with_year from events;\"\"}')",
+      "Bash(curl -s -X POST \"https://api.supabase.com/v1/projects/ugmjaamgjfpkssaphwxl/database/query\" -H \"Authorization: Bearer sbp_93502a285457630cd97cb08275ac645599cfca2d\" -H \"Content-Type: application/json\" -d '{\"\"query\"\": \"\"select table_name from information_schema.tables where table_schema = ''''public'''' order by table_name;\"\"}')",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}
