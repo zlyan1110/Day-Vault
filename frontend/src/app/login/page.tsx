@@ -15,6 +15,7 @@ export default function LoginPage() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "PASSWORD_RECOVERY") return;
       if (event === "SIGNED_IN" && session) {
+        if (window.location.hash.includes("type=recovery")) return;
         const { data } = await supabase
           .from("user_preferences")
           .select("tags")
