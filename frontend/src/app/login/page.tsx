@@ -13,6 +13,7 @@ export default function LoginPage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") return;
       if (event === "SIGNED_IN" && session) {
         const { data } = await supabase
           .from("user_preferences")
@@ -44,6 +45,11 @@ export default function LoginPage() {
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
           providers={[]}
+          redirectTo={
+            typeof window !== "undefined"
+              ? `${window.location.origin}/login`
+              : undefined
+          }
         />
       </div>
     </div>
