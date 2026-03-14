@@ -8,11 +8,20 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.replace("/feed");
-      } else {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
         router.replace("/login");
+        return;
+      }
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("tags")
+        .eq("user_id", session.user.id)
+        .limit(1);
+      if (!data || data.length === 0 || !data[0].tags?.length) {
+        router.replace("/onboarding");
+      } else {
+        router.replace("/feed");
       }
     });
   }, [router]);

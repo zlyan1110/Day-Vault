@@ -43,6 +43,15 @@ export default function FeedPage() {
         router.replace("/login");
         return;
       }
+      const { data: prefs } = await supabase
+        .from("user_preferences")
+        .select("tags")
+        .eq("user_id", session.user.id)
+        .limit(1);
+      if (!prefs || prefs.length === 0 || !prefs[0].tags?.length) {
+        router.replace("/onboarding");
+        return;
+      }
       setUserId(session.user.id);
       try {
         const data = await getFeed(session.user.id);
