@@ -35,16 +35,36 @@ export default function OnboardingPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.replace("/login");
-      } else {
-        setUserId(session.user.id);
+        return;
       }
+      // Already has tags → go straight to feed
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("tags")
+        .eq("user_id", session.user.id)
+        .limit(1);
+      if (data && data.length > 0 && data[0].tags?.length) {
+        router.replace("/feed");
+        return;
+      }
+      setUserId(session.user.id);
+      setChecking(false);
     });
   }, [router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Loading...</p>
+      </div>
+    );
+  }
 
   const toggle = (tag: string) => {
     setSelected((prev) => {
