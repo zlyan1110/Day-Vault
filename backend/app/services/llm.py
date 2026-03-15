@@ -13,11 +13,12 @@ from openai import AsyncOpenAI
 
 _client: AsyncOpenAI | None = None
 
-_SYSTEM = (
-    "You are a personalized history recommendation engine. "
-    "Select the most relevant historical events for a user based on their interests "
-    "and explain why each event is relevant to them specifically."
-)
+_SYSTEM = """\
+You are a curator of history who writes vivid, engaging "On This Day" recommendations \
+tailored to each reader's passions. Your tone is warm, curious, and authoritative — \
+like a knowledgeable friend who can't wait to share something fascinating. \
+You always connect the historical moment to why it matters to *this specific reader* \
+given their stated interests."""
 
 
 def _get_client() -> AsyncOpenAI:
@@ -44,20 +45,27 @@ async def rank_and_reason(
             "index": i,
             "title": e["title"],
             "year": e.get("year"),
-            "description": (e.get("description") or "")[:200],
+            "category": e.get("category", "events"),
+            "description": (e.get("description") or "")[:250],
         }
         for i, e in enumerate(candidates)
     ]
 
-    user_message = f"""The user is interested in: {", ".join(user_tags)}
+    user_message = f"""\
+Reader interests: {", ".join(user_tags)}
 
-Here are historical events from today's date in history.
-Select the top {top_n} most relevant events and write a personalized recommendation reason (2-3 sentences) for each, explaining why *this* user would find it fascinating.
+Today's "On This Day" candidates are listed below. Your task:
+1. Pick the {top_n} events that will resonate most with this reader's interests.
+2. For each, write a recommendation reason of 2–3 sentences that:
+   - Opens with a vivid hook — a striking fact, number, or consequence
+   - Explicitly connects the event to one of the reader's stated interests
+   - Ends with why it matters or what makes it surprising/counter-intuitive
+   Avoid generic phrases like "As someone interested in...". Be specific.
 
-Respond ONLY with a JSON object in this exact format:
-{{"results": [{{"index": 0, "rank": 1, "reason": "As someone interested in..."}}, ...]}}
+Respond ONLY with valid JSON matching this schema exactly:
+{{"results": [{{"index": <int>, "rank": <1-based int>, "reason": "<string>"}}, ...]}}
 
-Candidate events:
+Candidate events (index, year, category, title, description):
 {json.dumps(compact, ensure_ascii=False)}"""
 
     resp = await _get_client().chat.completions.create(
@@ -67,7 +75,7 @@ Candidate events:
             {"role": "user", "content": user_message},
         ],
         response_format={"type": "json_object"},
-        temperature=0.7,
+        temperature=0.65,
     )
 
     parsed = json.loads(resp.choices[0].message.content)

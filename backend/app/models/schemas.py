@@ -37,3 +37,13 @@ class InteractRequest(BaseModel):
 
 class InteractResponse(BaseModel):
     ok: bool
+
+
+# ── Feed Feedback ──────────────────────────────────────────────────────────────
+
+class FeedbackRequest(BaseModel):
+    rating: int  # 1–5
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool

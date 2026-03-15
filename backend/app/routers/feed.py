@@ -1,8 +1,12 @@
+from datetime import date
+
 from fastapi import APIRouter, Header, HTTPException
 
 from app.db.client import get_supabase
 from app.models.schemas import (
     FeedResponse,
+    FeedbackRequest,
+    FeedbackResponse,
     InteractRequest,
     InteractResponse,
 )
@@ -37,3 +41,19 @@ async def interact(
         }
     ).execute()
     return InteractResponse(ok=True)
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    body: FeedbackRequest,
+    x_user_id: str = Header(..., alias="X-User-Id", description="Supabase user UUID"),
+) -> FeedbackResponse:
+    """Save a 1–5 satisfaction rating for today's feed."""
+    if not (1 <= body.rating <= 5):
+        raise HTTPException(status_code=422, detail="rating must be between 1 and 5")
+    today = date.today().isoformat()
+    get_supabase().table("daily_feeds").upsert(
+        {"user_id": x_user_id, "feed_date": today, "rating": body.rating},
+        on_conflict="user_id,feed_date",
+    ).execute()
+    return FeedbackResponse(ok=True)

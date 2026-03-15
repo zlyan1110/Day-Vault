@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getFeed, interact } from "@/lib/api";
+import { getFeed, interact, submitFeedback } from "@/lib/api";
 import FeedCard from "@/components/FeedCard";
 import FeedCardSkeleton from "@/components/FeedCardSkeleton";
+import { Button } from "@/components/ui/button";
 
 interface Card {
   event_id: number;
@@ -16,15 +17,26 @@ interface Card {
   source_url: string | null;
 }
 
+const FEEDBACK_EMOJIS = [
+  { rating: 1, emoji: "😞", label: "Poor" },
+  { rating: 2, emoji: "😐", label: "Meh" },
+  { rating: 3, emoji: "🙂", label: "OK" },
+  { rating: 4, emoji: "😊", label: "Good" },
+  { rating: 5, emoji: "🤩", label: "Amazing" },
+];
+
 export default function FeedPage() {
   const router = useRouter();
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [interactions, setInteractions] = useState<
     Record<number, "like" | "dislike">
   >({});
   const [displayDate, setDisplayDate] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   useEffect(() => {
     setDisplayDate(
@@ -36,6 +48,19 @@ export default function FeedPage() {
       })
     );
   }, []);
+
+  const loadFeed = async (uid: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getFeed(uid);
+      setCards(data.cards || []);
+    } catch {
+      setError("Couldn't load your feed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -53,12 +78,7 @@ export default function FeedPage() {
         return;
       }
       setUserId(session.user.id);
-      try {
-        const data = await getFeed(session.user.id);
-        setCards(data.cards || []);
-      } finally {
-        setLoading(false);
-      }
+      await loadFeed(session.user.id);
     });
   }, [router]);
 
@@ -76,6 +96,17 @@ export default function FeedPage() {
         delete next[eventId];
         return next;
       });
+    }
+  };
+
+  const handleFeedback = async (rating: number) => {
+    if (!userId || feedbackSubmitted) return;
+    setFeedbackRating(rating);
+    try {
+      await submitFeedback(userId, rating);
+      setFeedbackSubmitted(true);
+    } catch {
+      setFeedbackRating(null);
     }
   };
 
@@ -107,25 +138,69 @@ export default function FeedPage() {
             <h2 className="text-2xl font-bold mt-0.5">{displayDate}</h2>
           </div>
         )}
+
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <FeedCardSkeleton key={i} />
           ))
+        ) : error ? (
+          <div className="text-center py-20 flex flex-col items-center gap-4">
+            <p className="text-muted-foreground">{error}</p>
+            <Button
+              variant="outline"
+              onClick={() => userId && loadFeed(userId)}
+            >
+              Try again
+            </Button>
+          </div>
         ) : cards.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             <p className="text-lg font-medium">No events for today.</p>
             <p className="text-sm mt-1">Check back tomorrow!</p>
           </div>
         ) : (
-          cards.map((card, i) => (
-            <FeedCard
-              key={card.event_id}
-              card={card}
-              interaction={interactions[card.event_id]}
-              onInteract={(action) => handleInteract(card.event_id, action)}
-              style={{ animationDelay: `${i * 80}ms` }}
-            />
-          ))
+          <>
+            {cards.map((card, i) => (
+              <FeedCard
+                key={card.event_id}
+                card={card}
+                interaction={interactions[card.event_id]}
+                onInteract={(action) => handleInteract(card.event_id, action)}
+                style={{ animationDelay: `${i * 80}ms` }}
+              />
+            ))}
+
+            {/* Feedback widget */}
+            <div className="mt-4 mb-8 rounded-xl border bg-muted/40 px-6 py-5 text-center animate-in fade-in-0 duration-700">
+              {feedbackSubmitted ? (
+                <p className="text-sm font-medium text-muted-foreground">
+                  Thanks for your feedback! See you tomorrow.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium mb-3">
+                    How was today&apos;s feed?
+                  </p>
+                  <div className="flex justify-center gap-2">
+                    {FEEDBACK_EMOJIS.map(({ rating, emoji, label }) => (
+                      <button
+                        key={rating}
+                        onClick={() => handleFeedback(rating)}
+                        title={label}
+                        className={`text-2xl leading-none rounded-lg p-2 transition-all hover:scale-125 focus:outline-none ${
+                          feedbackRating === rating
+                            ? "scale-125 bg-muted"
+                            : "opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
         )}
       </main>
     </div>

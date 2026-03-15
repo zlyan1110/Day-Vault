@@ -8,7 +8,8 @@ Usage:
     # From project root:
     python backend/scripts/seed_events.py
     python backend/scripts/seed_events.py --file backend/data/events_03.json
-    python backend/scripts/seed_events.py --clear   # wipe table before seeding
+    python backend/scripts/seed_events.py --all    # seed all events_<MM>.json in backend/data/
+    python backend/scripts/seed_events.py --clear  # wipe table before seeding
 """
 
 import argparse
@@ -28,6 +29,7 @@ load_dotenv(ROOT_DIR / ".env")
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SECRET_KEY = os.environ["SUPABASE_SECRET_KEY"]  # service role equivalent
 DEFAULT_JSON = ROOT_DIR / "backend" / "data" / "events_02.json"
+DATA_DIR = ROOT_DIR / "backend" / "data"
 BATCH_SIZE = 500  # rows per upsert call
 
 
@@ -74,22 +76,47 @@ def seed(client: Client, records: list[dict], clear: bool) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def load_all_month_files() -> list[dict]:
+    """Load and merge all events_<MM>.json files from the data directory."""
+    import glob as _glob
+    pattern = str(DATA_DIR / "events_??.json")
+    files = sorted(_glob.glob(pattern))
+    if not files:
+        sys.exit(f"No events_<MM>.json files found in {DATA_DIR}")
+    combined: list[dict] = []
+    for path in files:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        combined.extend(data)
+        print(f"  Loaded {len(data):>5} events from {Path(path).name}")
+    return combined
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed events into Supabase.")
     parser.add_argument("--file", default=str(DEFAULT_JSON), help="Path to JSON file")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_months",
+        help="Seed all events_<MM>.json files from backend/data/",
+    )
     parser.add_argument("--clear", action="store_true", help="Delete all rows before inserting")
     args = parser.parse_args()
 
-    json_path = Path(args.file)
-    if not json_path.exists():
-        sys.exit(f"File not found: {json_path}")
-
-    print(f"Loading {json_path}...")
-    with open(json_path, encoding="utf-8") as f:
-        raw_events = json.load(f)
+    if args.all_months:
+        print(f"Loading all month files from {DATA_DIR}...")
+        raw_events = load_all_month_files()
+    else:
+        json_path = Path(args.file)
+        if not json_path.exists():
+            sys.exit(f"File not found: {json_path}")
+        print(f"Loading {json_path}...")
+        with open(json_path, encoding="utf-8") as f:
+            raw_events = json.load(f)
 
     records = [transform(e) for e in raw_events]
-    print(f"Loaded {len(records)} events.")
+    print(f"Loaded {len(records)} events total.")
 
     client: Client = create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
     seed(client, records, clear=args.clear)

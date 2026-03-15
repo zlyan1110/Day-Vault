@@ -2,11 +2,16 @@
 fetch_wikipedia_events.py
 
 Fetches "On This Day" historical events from the Wikipedia REST API for a
-given month and saves them as a JSON file. Defaults to February for testing.
+given month (or all 12 months) and saves them as JSON.
 
 Usage:
+    # Single month (default: February)
     python backend/scripts/fetch_wikipedia_events.py
-    python backend/scripts/fetch_wikipedia_events.py --month 03 --output backend/data/events_march.json
+    python backend/scripts/fetch_wikipedia_events.py --month 03
+
+    # Full year — saves backend/data/events_<MM>.json per month AND
+    #              a combined backend/data/events_all.json
+    python backend/scripts/fetch_wikipedia_events.py --all
 """
 
 import argparse
@@ -103,6 +108,31 @@ def fetch_month(month: str) -> list[dict]:
     return all_events
 
 
+def _data_dir() -> str:
+    return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
+
+
+def _save(path: str, events: list[dict]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(events, fh, ensure_ascii=False, indent=2)
+    print(f"  Saved {len(events)} events → {path}")
+
+
+def fetch_all_months() -> list[dict]:
+    """Fetch all 12 months, save individual files, return combined list."""
+    data_dir = _data_dir()
+    combined: list[dict] = []
+
+    for month in sorted(DAYS_PER_MONTH.keys()):
+        print(f"\n── Month {month} ──────────────────────────────")
+        events = fetch_month(month)
+        combined.extend(events)
+        _save(os.path.join(data_dir, f"events_{month}.json"), events)
+
+    return combined
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fetch Wikipedia On This Day events.")
     parser.add_argument("--month", default="02", help="Two-digit month (default: 02)")
@@ -111,24 +141,32 @@ def main() -> None:
         default=None,
         help="Output JSON path (default: backend/data/events_<month>.json)",
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_months",
+        help="Fetch all 12 months; saves per-month files + events_all.json",
+    )
     args = parser.parse_args()
+
+    if args.all_months:
+        print("Fetching Wikipedia On This Day events for ALL months (~365 requests)...")
+        combined = fetch_all_months()
+        combined_path = os.path.join(_data_dir(), "events_all.json")
+        _save(combined_path, combined)
+        print(f"\nDone. {len(combined)} total events across all months.")
+        return
 
     month = args.month.zfill(2)
     if month not in DAYS_PER_MONTH:
         raise SystemExit(f"Invalid month: {month!r}. Must be 01–12.")
 
-    output_path = args.output or os.path.join(
-        os.path.dirname(__file__), "..", "data", f"events_{month}.json"
-    )
+    output_path = args.output or os.path.join(_data_dir(), f"events_{month}.json")
     output_path = os.path.normpath(output_path)
 
     print(f"Fetching Wikipedia On This Day events for month {month}...")
     all_events = fetch_month(month)
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as fh:
-        json.dump(all_events, fh, ensure_ascii=False, indent=2)
-
+    _save(output_path, all_events)
     print(f"\nDone. {len(all_events)} events saved to {output_path}")
 
 

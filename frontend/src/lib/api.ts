@@ -39,3 +39,10 @@ export async function interact(
     body: JSON.stringify({ event_id: eventId, action }),
   });
 }
+
+export async function submitFeedback(userId: string, rating: number) {
+  return apiFetch("/api/feed/feedback", userId, {
+    method: "POST",
+    body: JSON.stringify({ rating }),
+  });
+}
