@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { savePreferences } from "@/lib/api";
+import { savePreferences, invalidateFeed } from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
 
-export default function OnboardingPage() {
+export default function EditTagsPage() {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -20,15 +22,14 @@ export default function OnboardingPage() {
         router.replace("/login");
         return;
       }
-      // Already has tags → go straight to feed
       const { data } = await supabase
         .from("user_preferences")
         .select("tags")
         .eq("user_id", session.user.id)
         .limit(1);
+
       if (data && data.length > 0 && data[0].tags?.length) {
-        router.replace("/feed");
-        return;
+        setSelected(new Set(data[0].tags as string[]));
       }
       setUserId(session.user.id);
       setChecking(false);
@@ -48,41 +49,54 @@ export default function OnboardingPage() {
     setSaving(true);
     try {
       await savePreferences(userId, Array.from(selected));
-      router.replace("/feed");
+      // Invalidate today's cached feed so it regenerates with new tags
+      await invalidateFeed(userId);
+      setSaved(true);
+      setTimeout(() => router.replace("/feed"), 800);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
-      <div className="w-full max-w-2xl">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">
-            What interests you?
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Select topics to personalize your daily history feed
-          </p>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="font-bold text-lg tracking-tight">Edit Interests</h1>
         </div>
+      </header>
 
-        <div className="mb-10">
+      <main className="max-w-2xl mx-auto px-4 py-8">
+        <p className="text-sm text-muted-foreground mb-6 text-center">
+          Update your topics — your feed will regenerate with the new selection.
+        </p>
+
+        <div className="mb-8">
           <TagSelector selected={selected} onChange={setSelected} />
         </div>
 
         <div className="flex justify-center">
           <Button
             onClick={handleSave}
-            disabled={selected.size === 0 || saving}
+            disabled={selected.size === 0 || saving || saved}
             size="lg"
             className="px-8"
           >
-            {saving
+            {saved
+              ? "Saved!"
+              : saving
               ? "Saving..."
-              : `Continue with ${selected.size} topic${selected.size === 1 ? "" : "s"}`}
+              : `Save ${selected.size} topic${selected.size === 1 ? "" : "s"}`}
           </Button>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

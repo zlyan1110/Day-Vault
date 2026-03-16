@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getFeed, interact, submitFeedback } from "@/lib/api";
 import FeedCard from "@/components/FeedCard";
@@ -120,12 +121,21 @@ export default function FeedPage() {
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <h1 className="font-bold text-lg tracking-tight">DayVault</h1>
-          <button
-            onClick={handleSignOut}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/settings/tags")}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Edit interests"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 

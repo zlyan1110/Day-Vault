@@ -15,6 +15,8 @@ async function apiFetch(
     },
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
+  // 204 No Content has no body
+  if (res.status === 204) return;
   return res.json();
 }
 
@@ -45,4 +47,8 @@ export async function submitFeedback(userId: string, rating: number) {
     method: "POST",
     body: JSON.stringify({ rating }),
   });
+}
+
+export async function invalidateFeed(userId: string) {
+  return apiFetch("/api/feed/today", userId, { method: "DELETE" });
 }
