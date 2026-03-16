@@ -43,6 +43,17 @@ async def interact(
     return InteractResponse(ok=True)
 
 
+@router.delete("/today", status_code=204)
+async def invalidate_feed(
+    x_user_id: str = Header(..., alias="X-User-Id", description="Supabase user UUID"),
+) -> None:
+    """Delete today's cached feed so it regenerates on next GET /today."""
+    today = date.today().isoformat()
+    get_supabase().table("daily_feeds").delete().eq("user_id", x_user_id).eq(
+        "feed_date", today
+    ).execute()
+
+
 @router.post("/feedback", response_model=FeedbackResponse)
 async def submit_feedback(
     body: FeedbackRequest,
